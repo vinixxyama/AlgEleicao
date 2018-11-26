@@ -1,11 +1,8 @@
 import config
-import socket
-import queue
 
-config.fila = queue.Queue()
 config.matriz_adj = []
-config.peso = []
-config.reconhecimento = []
-config.pai = []
-config.visitado = []
-config.socket = []
+config.pai = 0
+config.visitado = 0
+config.peso = 0
+config.maior_peso = 0
+config.maior_remetente = 0
