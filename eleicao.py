@@ -27,7 +27,7 @@ UCAST_PORT = 3000
 
 process_number      = int(sys.argv[1])
 
-text_import = "node" + str(process_number) + ".txt"
+text_import = "inputs/node" + str(process_number) + ".txt"
 
 with open (text_import, "r") as file:
     aux             = file.read()
@@ -44,7 +44,7 @@ config.maior_peso   = config.peso
 config.maior_remetente = process_number
 config.retornos_recebidos = 0
 
-with open("adj.txt", "r") as file:
+with open("inputs/adj.txt", "r") as file:
     for line in file:
         config.matriz_adj[int(line[0])][int(line[2])] = 1
         config.matriz_adj[int(line[2])][int(line[0])] = 1
