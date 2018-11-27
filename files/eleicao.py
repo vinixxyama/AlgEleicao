@@ -38,7 +38,7 @@ with open (text_import, "r") as file:
 # config.peso         = int(input("Insert the weight of your process: "))
 config.matriz_adj   = [[0] * (int(process_count) + 1) for x in range(int(process_count) + 1)]
 config.pai          = 0
-config.visitado     = 0
+config.visitado     = [0 for x in range(int(process_count) + 1)]
 config.filhos       = 0
 config.maior_peso   = config.peso
 config.maior_remetente = process_number
@@ -52,7 +52,7 @@ with open("inputs/adj.txt", "r") as file:
 A = np.array(config.matriz_adj)
 print("Matriz de adjacencia:")
 print(A)
-
+process_count = int(process_count)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind((UCAST_ADDR, UCAST_PORT + process_number))
@@ -69,7 +69,7 @@ def sender():
         opcao = int(input("Select an option: "))
 
         config.pai          = 0
-        config.visitado     = 0
+        config.visitado     = [0 for x in range(int(process_count) + 1)]
         config.filhos       = 0
         config.maior_peso   = config.peso
         config.maior_remetente = process_number
@@ -78,12 +78,21 @@ def sender():
         if(opcao == 1):
             print("Starting election from process n. " + str(process_number) + " ...")
             msg_elect = "Eleicao" + "/" + str(process_number)
-            for i in range(1, process_count + 1):
+            for i in range(1, int(process_count ) + 1):
+                msg_visitado = "visitado" + "/" + str(process_number)
+                sock.sendto(msg_visitado.encode(), (UCAST_ADDR, UCAST_PORT + i))
+
+            for i in range(1, int(process_count) + 1):
                 if(config.matriz_adj[process_count][i] == 1):
-                    sock.sendto(msg_elect.encode(), (UCAST_ADDR, UCAST_PORT + i))
-                    config.filhos = config.filhos + 1
-            
-            print("Elected node: " + str(config.maior_remetente) + "weight: " + str(config.maior_peso))
+                    if(i != config.pai):
+                        print ("envicnaod para: ", i)
+                        sock.sendto(msg_elect.encode(), (UCAST_ADDR, UCAST_PORT + i))
+                        config.filhos = config.filhos + 1
+            config.visitado[process_number] = 1
+            while(True):
+                if(config.filhos == config.retornos_recebidos):
+                    print("Elected node: " + str(config.maior_remetente) + " weight: " + str(config.maior_peso))
+                    break
 
 def receiver():
     while True:
@@ -101,34 +110,44 @@ def receiver():
             if(config.pai == 0):
                 print("Defined father as process n." + str(origem))
                 config.pai = origem
-            
-            if(config.visitado == 0):
-                for i in range(1, process_count + 1):
-                    if(config.matriz_adj[process_number][i] == 1):
+
+            for i in range(1, int(process_count ) + 1):
+                msg_visitado = "visitado" + "/" + str(process_number)
+                sock.sendto(msg_visitado.encode(), (UCAST_ADDR, UCAST_PORT + i))
+
+            for i in range(1, process_count + 1):
+                if(config.matriz_adj[process_number][i] == 1):
+                    if(config.visitado[i] == 0):
                         print("Sending ELECTION message to process n." + str(i))
+                        msg_visitado = "visitado" + "/" + str(process_number)
+                        sock.sendto(msg_visitado.encode(), (UCAST_ADDR, UCAST_PORT + i))
                         msg_elect = "Eleicao" + "/" + str(process_number)
                         sock.sendto(msg_elect.encode(), (UCAST_ADDR, UCAST_PORT + i))
                         retornar = 0
+                        config.filhos = config.filhos + 1
 
             if(retornar):
-                print("No unvisited adjacent process, returning to process n." + str(config.pai))
+                print("No unvisited adjacent process, returning to process n." + str(config.pai)+ "peso: " + str(config.maior_peso))
                 msg_return = "Retornar" + "/" + str(process_number) + "/" + str(config.maior_remetente) + "/" + str(config.maior_peso)
-                sock.sendto(msg_return.decode(), (UCAST_ADDR, UCAST_PORT + config.pai))
-            config.visitado = 1
+                sock.sendto(msg_return.encode(), (UCAST_ADDR, UCAST_PORT + config.pai))
+
+        elif(msg == "visitado"):
+            config.visitado[origem] = 1
 
         elif(msg == "Retornar"):
+            print("Received Return message from process n." + str(origem))
+            print("Filhos: " + str(config.filhos))
             peso_recebido       = int(msgsplit[3])
             process_recebido    = int(msgsplit[2])
             config.retornos_recebidos = config.retornos_recebidos + 1
-
-            if(peso_recebido > config.maior_peso):
+            if(peso_recebido > int(config.maior_peso)):
                 config.maior_peso = peso_recebido
                 config.maior_remetente = process_recebido
 
             if(config.filhos == config.retornos_recebidos):         
-                print("Received RETURN message, returning to node n." + str(config.pai))
+                print("Returning to node n." + str(config.pai) + " peso: " + str(peso_recebido))
                 msg_return = "Retornar" + "/" + str(process_number) + "/" + str(config.maior_remetente) + "/" + str(config.maior_peso)
-                sock.sendto(msg_return.decode(), (UCAST_ADDR, UCAST_PORT + config.pai))
+                sock.sendto(msg_return.encode(), (UCAST_ADDR, UCAST_PORT + config.pai))
 
 
 if __name__ == '__main__':
