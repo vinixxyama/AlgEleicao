@@ -53,7 +53,7 @@ config.matriz_adj       = [[0] * (process_count + 1) for x in range(process_coun
 #   - Greatest weight received
 #   - Origin of the greatest weight received
 #   - Number of received returns
-config.matriz_eleicao   = [[0] * (int(N_ATRIBUTOS) + 1) for x in range(process_count + 1)]
+config.matriz_eleicao   = [[0] * (process_count + 1) for x in range(int(N_ATRIBUTOS) + 1)]
 config.matriz_eleicao[ATR_MAIOR_PESO][process_number] = config.peso
 config.matriz_eleicao[ATR_MAIOR_REMETENTE][process_number] = process_number
 
@@ -66,6 +66,14 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind((UCAST_ADDR, UCAST_PORT + process_number))
 
+config.matriz_eleicao[ATR_FILHOS][process_number]               = 0
+
+config.matriz_eleicao[ATR_PAI][process_number]                  = 0
+config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][process_number]   = 0
+for i in range(1, int(process_count) + 1):
+    config.matriz_eleicao[ATR_MAIOR_PESO][i]           = config.peso
+    config.matriz_eleicao[ATR_MAIOR_REMETENTE][i]      = process_number
+    
 def sender():
     while True:
         time.sleep(0.25)
@@ -77,11 +85,13 @@ def sender():
         time.sleep(0.25)
         opcao = int(input("Select an option: "))
 
-        config.matriz_eleicao[ATR_PAI][process_number]                  = 0
         config.matriz_eleicao[ATR_FILHOS][process_number]               = 0
-        config.matriz_eleicao[ATR_MAIOR_PESO][process_number]           = config.peso
-        config.matriz_eleicao[ATR_MAIOR_REMETENTE][process_number]      = process_number
+        
+        config.matriz_eleicao[ATR_PAI][process_number]                  = 0
         config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][process_number]   = 0
+        for i in range(1, int(process_count) + 1):
+            config.matriz_eleicao[ATR_MAIOR_PESO][i]           = config.peso
+            config.matriz_eleicao[ATR_MAIOR_REMETENTE][i]      = process_number
         
 
         if(opcao == 1):
@@ -99,8 +109,7 @@ def sender():
                     + " Weight: " + str(config.matriz_eleicao[ATR_MAIOR_PESO][process_number]))
 
 
-                    msg_elected = "Elected" + "/" + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][process_number]) + "/"
-                    + str(config.matriz_eleicao[ATR_MAIOR_PESO][process_number]) + "/" + str(process_number)
+                    msg_elected = "Elected" + "/" + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][process_number]) + "/" + str(config.matriz_eleicao[ATR_MAIOR_PESO][process_number]) + "/" + str(process_number)
 
                     for i in range(1, process_count + 1):
                         if(i != process_number):
@@ -119,38 +128,42 @@ def receiver():
         raiz_eleicao    = int(msgsplit[2])
 
         if(msg == "Eleicao"):
+        
             print("Received an ELECTION" + str(raiz_eleicao) + " message from process n." + str(origem))
             retornar = 1
             
             if(config.matriz_eleicao[ATR_PAI][raiz_eleicao] == 0):
                 print("Defined father as process n." + str(origem))
                 config.matriz_eleicao[ATR_PAI][raiz_eleicao] = origem
-
                 for i in range(1, process_count + 1):
                     if(config.matriz_adj[process_number][i] == 1):
-                        if(config.matriz_eleicao[ATR_PAI][process_number] != i):
+                        if(not config.matriz_eleicao[ATR_PAI][raiz_eleicao] == i):
                             print("Sending ELECTION message to process n." + str(i))
                             msg_elect = "Eleicao" + "/" + str(process_number) + "/" + str(raiz_eleicao)
                             sock.sendto(msg_elect.encode(), (UCAST_ADDR, UCAST_PORT + i))
                             retornar = 0
-                            config.matriz_eleicao[ATR_FILHOS][process_number] = config.matriz_eleicao[ATR_FILHOS][process_number] + 1
-
+                            config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] = config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] + 1
+                
                 if(retornar):
                     print("Returning to node n." + str(config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
 
-                    msg_return = "Return" + "/" + str(process_number) + "/" + str(raiz_eleicao) + "/" 
-                    + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][raiz_eleicao]) + "/" 
-                    + str(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])
-
+                    msg_return = "Return" + "/" + str(process_number) + "/" + str(raiz_eleicao) + "/" + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][raiz_eleicao]) + "/" + str(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])
+                    print("????"+msg_return)
                     sock.sendto(msg_return.encode(), (UCAST_ADDR, UCAST_PORT + config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
+                
             else:
-                msg_ok = "OK" + "/" + str(origem) + "/" + str(raiz_eleicao)
+                msg_ok = "OK" + "/" + str(raiz_eleicao) + "/" + str(process_number)
+                print("origem:"+str(origem))
+                sock.sendto(msg_ok.encode(), (UCAST_ADDR, UCAST_PORT + origem))
+
 
 
         elif(msg == "Return"):
+        
             print("Received Return message from process n." + str(origem))
             peso_recebido       = int(msgsplit[4])
             process_recebido    = int(msgsplit[3])
+            print(peso_recebido)
             config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][raiz_eleicao] = config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][raiz_eleicao] + 1
             if(peso_recebido > int(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])):
                 config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao] = peso_recebido
@@ -158,24 +171,37 @@ def receiver():
 
             if(config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] == config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][raiz_eleicao]):         
                 print("Returning to node n." + str(config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
-                msg_return = "Return" + "/" + str(process_number) + "/" + str(raiz_eleicao) + "/"
-                + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][raiz_eleicao]) + "/" 
-                + str(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])
+                msg_return = "Return" + "/" + str(process_number) + "/" + str(raiz_eleicao) + "/" + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][raiz_eleicao]) + "/"               + str(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])
 
                 sock.sendto(msg_return.encode(), (UCAST_ADDR, UCAST_PORT + config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
         
+        
         elif(msg == "OK"):
-            print("Received OK message from process n." + str(origem))
+            raiz_eleicao = int(msgsplit[1])
+            origem = int(msgsplit[2])
+            print("Received OK message from process n." + str(msgsplit[2]))
+        
+            config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] -= 1
+            if(config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] < 0):
+                config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] = 0
+            if(config.matriz_eleicao[ATR_FILHOS][raiz_eleicao] == config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][raiz_eleicao]):
+                print("Returning to node n." + str(config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
+                A = np.array(config.matriz_eleicao)
+                print(A)
+                msg_return = "Return" + "/" + str(process_number) + "/" + str(raiz_eleicao) + "/" + str(config.matriz_eleicao[ATR_MAIOR_REMETENTE][raiz_eleicao]) + "/" + str(config.matriz_eleicao[ATR_MAIOR_PESO][raiz_eleicao])
+                print(msg_return)
+                sock.sendto(msg_return.encode(), (UCAST_ADDR, UCAST_PORT + config.matriz_eleicao[ATR_PAI][raiz_eleicao]))
 
         elif(msg == "Elected"):
-            origem = msgsplit[3]
+            origem = int(msgsplit[3])
             print("Election" + str(msgsplit[3] + " terminated, Elected node: " + str(msgsplit[1]) + ", Weight: " + str(msgsplit[2])))
 
-            config.matriz_eleicao[ATR_PAI][origem]                  = 0
+            config.matriz_eleicao[ATR_PAI][origem] = 0
             config.matriz_eleicao[ATR_FILHOS][origem]               = 0
-            config.matriz_eleicao[ATR_MAIOR_PESO][origem]           = config.peso
-            config.matriz_eleicao[ATR_MAIOR_REMETENTE][origem]      = process_number
             config.matriz_eleicao[ATR_RETORNOS_RECEBIDOS][origem]   = 0
+            for i in range(1, process_count + 1):
+                config.matriz_eleicao[ATR_MAIOR_PESO][i]           = config.peso
+                config.matriz_eleicao[ATR_MAIOR_REMETENTE][i]      = process_number
 
 
 
