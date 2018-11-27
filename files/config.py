@@ -1,6 +1,4 @@
 matriz_adj = []
-pai = 0
-visitado = []
+matriz_eleicao = []
 peso = 0
-maior_peso = 0
-maior_remetente = 0
+
