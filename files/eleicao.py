@@ -19,6 +19,7 @@ import sys
 import random
 import time
 import threading
+import itertools
 from time import sleep
 import numpy as np
 
@@ -35,11 +36,15 @@ ATR_RETORNOS_RECEBIDOS  = 5
 process_number      = int(sys.argv[1])
 
 # Import the total number of process and the weight of the current process
+i = 0
 text_import = "inputs/node" + str(process_number) + ".txt"
 with open (text_import, "r") as file:
-    aux             = file.read()
-    process_count   = aux[0]
-    config.peso     = aux[2]
+    for line in file:
+            if(i == 0):
+                process_count   = int(line)
+                i = i + 1
+            else:
+                config.peso     = int(line)
 
 process_count           = int(process_count)
 config.peso             = int(config.peso)
